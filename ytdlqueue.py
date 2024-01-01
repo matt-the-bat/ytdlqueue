@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 # coding: utf-8
-''' Queue for single-instance youtube_dl '''
+""" Queue for single-instance youtube_dl """
 from pathlib import Path
 import sys
 import subprocess
 import urllib.parse as ul
 import socket
 
-queueFile = Path().home() / '.ytdlqueue'
+queueFile = Path().home() / ".ytdlqueue"
 
-''' HTTP unquote CLI arg
+""" HTTP unquote CLI arg
     If blank, assume script was called to restart
-    the download queue '''
+    the download queue """
 vid = None
 try:
     vid = ul.unquote_plus(sys.argv[1])
@@ -19,28 +19,28 @@ except IndexError:
     vid = None
 
 # Strings for matching
-ytstrings = ['youtu.be', 'youtube', 'http']
+ytstrings = ["youtu.be", "youtube", "http"]
 
 
 def appendQueue():
-    """ Add vid to queueFile """
+    """Add vid to queueFile"""
     if vid:
-        with queueFile.open('a') as qf:
-            qf.write(f'{vid}\n')
+        with queueFile.open("a") as qf:
+            qf.write(f"{vid}\n")
 
 
 SOCKET = None
 
 
 def run_once(uniq_name):
-    ''' Ensure only one instance is running.
-    Create an abstract socket by prefixing it with null.
-   Append queue in either instance.
-    '''
+    """Ensure only one instance is running.
+     Create an abstract socket by prefixing it with null.
+    Append queue in either instance.
+    """
     try:
         global SOCKET
         SOCKET = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        SOCKET.bind('\0' + uniq_name)
+        SOCKET.bind("\0" + uniq_name)
 
         appendQueue()
         return True
@@ -50,8 +50,8 @@ def run_once(uniq_name):
 
 
 def queueEmpty():
-    """ True if empty, False if not  """
-    with queueFile.open('r') as qf:
+    """True if empty, False if not"""
+    with queueFile.open("r") as qf:
         if any(x in qf.readline() for x in ytstrings):
             return False
         else:
@@ -59,11 +59,11 @@ def queueEmpty():
 
 
 def delQueueTopVid():
-    """ Erase all lines with vid id,
-        via omission on a temp file """
-    tmpq = Path().home() / '.tempq'
-    with tmpq.open('w') as tmp:
-        with queueFile.open('r') as qf:
+    """Erase all lines with vid id,
+    via omission on a temp file"""
+    tmpq = Path().home() / ".tempq"
+    with tmpq.open("w") as tmp:
+        with queueFile.open("r") as qf:
             for line in qf:
                 if vid not in line:
                     tmp.write(line)
@@ -71,17 +71,17 @@ def delQueueTopVid():
 
 
 def getQueueTopVid():
-    """ Grab next vid url from queueFile """
+    """Grab next vid url from queueFile"""
     vURL = None
     if queueFile.exists():
-        with queueFile.open('r') as qf:
+        with queueFile.open("r") as qf:
             for line in qf:
                 vURL = line.rstrip()
                 break
     return vURL
 
 
-run_once('ytdllock')
+run_once("ytdllock")
 
 
 """ Call yt-dlp in a while loop.
@@ -89,16 +89,15 @@ run_once('ytdllock')
     When complete delete vid from queue. """
 vid = getQueueTopVid()
 while vid:
-    print(f'Running ytdl with url: {vid}')
-    subprocess.run(f'yt-dlp -- {vid}',
-                   shell=True, check=True)
+    print(f"Running ytdl with url: {vid}")
+    subprocess.run(f"yt-dlp -- {vid}", shell=True, check=True)
     # Don't del queue entry, in case DL is interrupted
     delQueueTopVid()
     vid = getQueueTopVid()
 
 # Clean up trailing newlines in file
-with open(queueFile, 'r') as file:
+with open(queueFile, "r") as file:
     lines = file.readlines()
-    non_empty_lines = [_ for _ in lines if _.strip() != '']
-with open(queueFile, 'w') as file:
+    non_empty_lines = [_ for _ in lines if _.strip() != ""]
+with open(queueFile, "w") as file:
     file.writelines(non_empty_lines)
