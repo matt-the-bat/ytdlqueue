@@ -90,7 +90,7 @@ run_once("ytdllock")
 vid = getQueueTopVid()
 while vid:
     print(f"Running ytdl with url: {vid}")
-    subprocess.run(f"yt-dlp -- {vid}", shell=True, check=True)
+    subprocess.run(["yt-dlp", "--", vid], shell=False, check=True)
     # Don't del queue entry, in case DL is interrupted
     delQueueTopVid()
     vid = getQueueTopVid()
