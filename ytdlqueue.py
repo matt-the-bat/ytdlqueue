@@ -2,10 +2,10 @@
 # coding: utf-8
 """ Queue for single-instance youtube_dl """
 from pathlib import Path
-import sys
 import subprocess
 import urllib.parse as ul
 import socket
+import argparse
 
 queueFile = Path().home() / ".ytdlqueue"
 
@@ -13,11 +13,6 @@ queueFile = Path().home() / ".ytdlqueue"
     If blank, assume script was called to restart
     the download queue """
 vid = None
-try:
-    vid = ul.unquote_plus(sys.argv[1])
-except IndexError:
-    vid = None
-
 # Strings for matching
 ytstrings = ["youtu.be", "youtube", "http"]
 
@@ -49,7 +44,7 @@ def run_once(uniq_name):
         raise SystemExit
 
 
-def queueEmpty():
+def queueEmpty() -> bool:
     """True if empty, False if not"""
     with queueFile.open("r") as qf:
         if any(x in qf.readline() for x in ytstrings):
@@ -58,7 +53,7 @@ def queueEmpty():
             return True
 
 
-def delQueueTopVid():
+def delQueueTopVid(vid: str) -> None:
     """Erase all lines with vid id,
     via omission on a temp file"""
     tmpq = Path().home() / ".tempq"
@@ -81,23 +76,36 @@ def getQueueTopVid():
     return vURL
 
 
-run_once("ytdllock")
+if __name__ == '__main__':
+    """ Call yt-dlp in a while loop.
+        Open queueFile each time ytdl is called.
+        When complete delete vid from queue. """
 
+    parser = argparse.ArgumentParser()
 
-""" Call yt-dlp in a while loop.
-    Open queueFile each time ytdl is called.
-    When complete delete vid from queue. """
-vid = getQueueTopVid()
-while vid:
-    print(f"Running ytdl with url: {vid}")
-    subprocess.run(["yt-dlp", "--", vid], shell=False, check=True)
-    # Don't del queue entry, in case DL is interrupted
-    delQueueTopVid()
+    parser.add_argument(
+            "input", nargs="?",
+            type=str,
+            help="Video to download." +
+            " Any url or video ID accepted by yt-dlp")
+    args = parser.parse_args()
+    if args.input:
+        vid = ul.unquote_plus(args.input)
+
+    run_once("ytdllock")
+
     vid = getQueueTopVid()
+    while vid:
+        print(f"Running ytdl with url: {vid}")
+        subprocess.run(["yt-dlp", "--", vid],
+                       shell=False, check=True)
+        # Don't del queue entry, in case DL is interrupted
+        delQueueTopVid(vid)
+        vid = getQueueTopVid()
 
-# Clean up trailing newlines in file
-with open(queueFile, "r") as file:
-    lines = file.readlines()
-    non_empty_lines = [_ for _ in lines if _.strip() != ""]
-with open(queueFile, "w") as file:
-    file.writelines(non_empty_lines)
+    # Clean up trailing newlines in file
+    with open(queueFile, "r") as file:
+        lines = file.readlines()
+        non_empty_lines = [_ for _ in lines if _.strip() != ""]
+    with open(queueFile, "w") as file:
+        file.writelines(non_empty_lines)
