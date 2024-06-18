@@ -2,12 +2,12 @@
 # coding: utf-8
 """ Queue for single-instance youtube_dl """
 from pathlib import Path
-import subprocess
+from yt_dlp import YoutubeDL  # type: ignore
 import urllib.parse as ul
 import socket
 import argparse
 
-queueFile = Path().home() / ".ytdlqueue"
+queueFile = Path.home() / ".ytdlqueue"
 
 """ HTTP unquote CLI arg
     If blank, assume script was called to restart
@@ -24,6 +24,7 @@ def appendQueue():
             qf.write(f"{vid}\n")
 
 
+''' File Locking '''
 SOCKET = None
 
 
@@ -87,7 +88,7 @@ if __name__ == '__main__':
             "input", nargs="?",
             type=str,
             help="Video to download." +
-            " Any url or video ID accepted by yt-dlp")
+            "Any url or video ID accepted by yt-dlp")
     args = parser.parse_args()
     if args.input:
         vid = ul.unquote_plus(args.input)
@@ -95,13 +96,14 @@ if __name__ == '__main__':
     run_once("ytdllock")
 
     vid = getQueueTopVid()
+    """ Call yt-dlp """
     while vid:
         print(f"Running ytdl with url: {vid}")
-        subprocess.run(["yt-dlp", "--", vid],
-                       shell=False, check=True)
-        # Don't del queue entry, in case DL is interrupted
-        delQueueTopVid(vid)
-        vid = getQueueTopVid()
+        with YoutubeDL() as yt:
+            yt.download([vid])
+            # Don't del queue entry, in case DL is interrupted
+            delQueueTopVid(vid)
+            vid = getQueueTopVid()
 
     # Clean up trailing newlines in file
     with open(queueFile, "r") as file:
